@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Enviar Imagen</title>
+</head>
+<body>
+    <h1>Enviar Imagen</h1>
+
+    <input type="file" id="fileInput" style="display: none;"> <!-- Ocultar el elemento input -->
+    <button id="uploadButton">Subir Imagen</button>
+    <!-- Contenedor de la imagen -->
+    <div id="imageDiv"></div>
+    <div id="countDiv"></div>
+
+    <script>
+    document.getElementById('uploadButton').addEventListener('click', function() {
+        document.getElementById('fileInput').click();
+    });
+
+    document.getElementById('fileInput').addEventListener('change', function() {
+        var fileInput = this;
+        var file = fileInput.files[0];
+
+        if (file) {
+            var formData = new FormData();
+            formData.append('image', file);
+
+            //No se envía withCredentials = true para evitar el error de Access-Control-Allow-Origin en servidores locales
+            //xhr.withCredentials = true;
+            var xhr = new XMLHttpRequest();
+            //Se muestra la imagen en el contendor div imagenDiv
+            xhr.addEventListener('readystatechange', function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    var div = document.getElementById('imageDiv');
+                    var img = document.createElement('img');
+                    img.src = URL.createObjectURL(xhr.response);
+                    div.appendChild(img);
+                }
+            });
+
+            xhr.open('POST', 'http://127.0.0.1:5000/api/api_process_image');
+            //Se usa una cabecera válida para insertar el valor del conteo de glóbulos
+            xhr.onload = function() {
+                var count = xhr.getResponseHeader('Expires');
+                var div = document.getElementById('countDiv');
+                div.innerHTML = 'El valor es: ' + count;
+            };
+            //Typo obligatorio para el formato de respuesta
+            xhr.responseType = 'blob';
+            xhr.send(formData);
+        }
+    });
+
+
+    </script>
+</body>
+</html>
