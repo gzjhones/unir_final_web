@@ -64,7 +64,7 @@ def get_segment(request):
         return None
 
 
-CORS(blueprint, resources={r"/api/api_process_image": {"origins": "http://127.0.0.1:8100"}})
+CORS(blueprint, resources={r"/api/api_process_image": {"origins": "*"}})
 
 
 @blueprint.route('/api/api_process_image', methods=['POST'])
@@ -82,9 +82,11 @@ def api_process_image():
         image_request.save('./image_request.jpeg')
         img_gray = cv.cvtColor(cv.imread('./image_request.jpeg'), cv.COLOR_BGR2GRAY)
 
-        picture, blobs, white, red = define_results(filter_image(img_gray, False), filter_image(img_gray, True))
+        blobs, white, red = define_results(filter_image(img_gray, False), filter_image(img_gray, True))
 
-        response = jsonify({'all': blobs, 'white': white, 'red': red, 'picture': picture.decode('utf-8')})
+        image_response = pybase64.b64encode((open("response_globes.jpeg", "rb")).read())
+
+        response = jsonify({'all': blobs, 'white': white, 'red': red, 'image': image_response.decode('utf-8')})
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
 
@@ -136,9 +138,6 @@ def define_results(img_all_globes, img_white_globes):
     keypoints = detector.detect(img_all_globes)
     all_blobs_count = len(keypoints)
     all_blobs = cv.drawKeypoints(img_all_globes, keypoints, blank, (255, 0, 0), cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+    cv.imwrite('./response_globes.jpeg', 255 * all_blobs)
 
-    print("Total de glóbulos:", all_blobs_count)
-    print("Glóbulos rojos:", all_blobs_count - white_blobs_count)
-    print("Glóbulos blancos:", white_blobs_count)
-
-    return pybase64.b64encode(all_blobs), all_blobs_count, white_blobs_count, all_blobs_count-white_blobs_count
+    return all_blobs_count, white_blobs_count, all_blobs_count-white_blobs_count
