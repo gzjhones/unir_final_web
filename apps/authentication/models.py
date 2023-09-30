@@ -40,6 +40,23 @@ class Users(db.Model, UserMixin):
     def __repr__(self):
         return str(self.username)
 
+class ProcessImage(db.Model):
+    __tablename__ = 'process_image'
+
+    id = db.Column(db.Integer, primary_key=True)
+    number_of_blobs = db.Column(db.Integer)
+    time_process = db.Column(db.String(50))
+    transaction_id = db.Column(db.String(50))
+    user_range = db.Column(db.Integer)
+    user_note = db.Column(db.String(255))
+
+    def __init__(self, number_of_blobs, time_process, transaction_id, user_range, user_note):
+        self.number_of_blobs = number_of_blobs
+        self.time_process = time_process
+        self.transaction_id = transaction_id
+        self.user_range = user_range
+        self.user_note = user_note
+
 
 @login_manager.user_loader
 def user_loader(id):

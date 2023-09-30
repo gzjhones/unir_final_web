@@ -27,7 +27,6 @@ import pybase64
 def index():
     return render_template('home/index.html', segment='index')
 
-
 @blueprint.route('/<template>')
 @login_required
 def route_template(template):
@@ -141,3 +140,4 @@ def define_results(img_all_globes, img_white_globes):
     cv.imwrite('./response_globes.jpeg', 255 * all_blobs)
 
     return all_blobs_count, white_blobs_count, all_blobs_count-white_blobs_count
+

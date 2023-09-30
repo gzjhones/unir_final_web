@@ -3,10 +3,9 @@
 Copyright (c) 2019 - present AppSeed.us
 """
 
-import os
-import pickle
+import os, pickle, time, random, string
 
-from flask import render_template, redirect, request, url_for, jsonify
+from flask import render_template, redirect, request, url_for, jsonify, current_app
 from flask_dance.contrib.github import github
 from flask_login import (
     current_user,
@@ -17,7 +16,7 @@ from flask_login import (
 from apps import db, login_manager
 from apps.authentication import blueprint
 from apps.authentication.forms import LoginForm, CreateAccountForm
-from apps.authentication.models import Users
+from apps.authentication.models import Users, ProcessImage
 from apps.authentication.util import verify_pass
 
 from skimage.morphology import binary_erosion, rectangle, binary_dilation, disk
@@ -126,6 +125,22 @@ def predict():
                            prediction_text=f'A house with {rooms} rooms per dwelling and located {distance} km to employment centers has a value of ${output}K')
 
 
+# Función para medir el tiempo de procesamiento
+def time_function():
+    total = 0
+    for i in range(1000000):
+        total += i
+    return total
+
+def transaction_id():
+    # Caracteres válidos: letras minúsculas y números
+    character = string.ascii_lowercase + string.digits
+    
+    # Genera una cadena aleatoria de 20 caracteres
+    string_random = ''.join(random.choice(character) for _ in range(20))
+    
+    return string_random
+
 # Modelo de predicción
 
 def process_and_detect_blobs(image):
@@ -153,64 +168,12 @@ def process_and_detect_blobs(image):
 
 # Ruta para procesar la imagen y detectar blobs
 # @blueprint.route('/procesar_imagen', methods=['POST'])
-def procesar_imagen2():
-    if 'imagen' not in request.files:
-        return jsonify({'error': 'No se ha seleccionado ninguna imagen.'})
-
-    imagen = request.files['imagen']
-
-    if imagen.filename == '' or not imagen.filename.endswith(('.jpg', '.jpeg', '.png')):
-        return jsonify({'error': 'El archivo seleccionado no es una imagen válida.'})
-
-    try:
-        image_bytes = BytesIO(imagen.read())
-        image_np = np.asarray(bytearray(image_bytes.read()), dtype=np.uint8)
-        img = cv.imdecode(image_np, cv.IMREAD_COLOR)
-
-        binary_dilation = process_and_detect_blobs(img)
-
-        # Asegúrate de que la imagen sea de 8 bits y en escala de grises
-        if binary_dilation.dtype != np.uint8:
-            binary_dilation = np.uint8(binary_dilation)
-
-        image = np.uint8(255 * binary_dilation)
-
-        params = cv.SimpleBlobDetector_Params()
-        params.filterByArea = True
-        params.minArea = 20
-        # params.maxArea = 2000
-
-        params.filterByCircularity = True
-        params.minCircularity = 0.01
-        # params.maxCircularity = 1
-
-        params.filterByConvexity = True
-        params.minConvexity = 0.1
-
-        params.filterByInertia = True
-        params.minInertiaRatio = 0.01
-
-        detector = cv.SimpleBlobDetector_create(params)
-        keypoints = detector.detect(binary_dilation)
-
-        blank = np.zeros((1, 1))
-        blobs = cv.drawKeypoints(image, keypoints, blank, (255, 0, 0), cv.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-
-        number_of_blobs = len(keypoints)
-
-        retval, buffer = cv.imencode('.png', blobs)
-        image_base64 = base64.b64encode(buffer).decode('utf-8')
-
-        # Devuelve una respuesta JSON con los datos de la imagen resultado
-        response_data = {'num_blobs': number_of_blobs, 'image_base64': image_base64}
-        return jsonify(response_data)
-
-    except Exception as e:
-        return jsonify({'error': f'Error al procesar la imagen: {str(e)}'})
-
 
 @blueprint.route('/procesar_imagen', methods=['POST'])
 def procesar_imagen():
+    # Registra el tiempo de inicio
+    time_start = time.time()
+
     if 'imagen' not in request.files:
         return jsonify({'error': 'No se ha seleccionado ninguna imagen.'})
 
@@ -274,19 +237,76 @@ def procesar_imagen():
         retval, buffer = cv.imencode('.png', blobs)
         image_base64 = base64.b64encode(buffer).decode('utf-8')
 
+        # Guardar resultado en folder process_image
+        # Ruta de la carpeta donde deseas guardar la imagen
+        folder_path = os.path.join(current_app.root_path, 'static/assets/process_image')
+        # Nombre de la transacción
+        transaction_name = transaction_id() 
+        # Ruta completa del archivo de imagen
+        image_path = os.path.join(folder_path, (transaction_name + '.jpg'))
+        # Escribe los bytes decodificados en el archivo .jpg
+        with open(image_path, 'wb') as image_file:
+            image_file.write(base64.b64decode(image_base64))
+        
+        # Registra el tiempo de finalización
+        time_end = time.time()
+        # Calcula el tiempo transcurrido en segundos
+        time_process = time_end - time_start
+        # Convierte el tiempo en un formato de horas:minutos:segundos
+        time_process = time.strftime("%H:%M:%S", time.gmtime(time_process))
+
+        content_data = {
+            "number_of_blobs": number_of_blobs,
+            "time_process": time_process,
+            "transaction_id": transaction_name,
+        }
+
         # Devuelve una respuesta JSON con los datos de la imagen resultado
-        response_data = {'num_blobs': number_of_blobs, 'image_base64': image_base64}
+        response_data = {'content_data': content_data, 'image_base64': image_base64}
         return jsonify(response_data)
 
     except Exception as e:
         return jsonify({'error': f'Error al procesar la imagen: {str(e)}'})
 
 
+@blueprint.route('/api/api_save_process', methods=['POST'])
+def api_save_process():
+    data = request.get_json()
+
+    nueva_imagen = ProcessImage(
+        number_of_blobs = data['number_of_blobs'],
+        time_process = data['time_process'],
+        transaction_id = data['transaction_id'],
+        user_range = data['user_range'],
+        user_note = data['user_note']
+    )
+
+    db.session.add(nueva_imagen)
+    db.session.commit()
+
+    return jsonify(data)
+
+@blueprint.route('/api/get_historic', methods=['GET'])
+def get_historic():
+    images = ProcessImage.query.order_by(ProcessImage.id.desc()).all()
+
+    images_list = [{'id': i.id, 'number_of_blobs': i.number_of_blobs, 'time_process': i.time_process, 'transaction_id': i.transaction_id, 'user_range': i.user_range, 'user_note': i.user_note} for i in images]
+
+    # Crea una respuesta JSON utilizando jsonify
+    return jsonify(images=images_list)
+
+@blueprint.route('/ver_procesamiento/<filename>')
+def ver_procesamiento(filename):
+    # Obtén la ruta completa de la imagen
+    image_path = os.path.join(blueprint.root_path, 'process_image', filename)
+    
+    # Renderiza la plantilla 'imagen.html' y pasa la ruta de la imagen como contexto
+    return render_template('predict-model.html', image_path=image_path)
+
 @blueprint.route('/logout')
 def logout():
     logout_user()
     return redirect(url_for('authentication_blueprint.login'))
-
 
 # Errors
 

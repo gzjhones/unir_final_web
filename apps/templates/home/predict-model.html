@@ -15,7 +15,7 @@
             <i class="tim-icons icon-simple-remove"></i>
           </button>
           <span data-notify="icon" class="tim-icons icon-chat-33"></span>
-          <span data-notify="message">Agregue la muestra de sangre a trav&eacute;s del bot&oacute;n <b>Seleccionar archivo</b>, el resultado se procesará y almacenar&aacute; para futuras métricas y otros indicadores. Al procesar una imagen acepta los t&eacute;rminos y condiciones sobre el uso del sistema de detección. <br> <a href="https://www.w3schools.com" target="_blank">Ver t&eacute;rminos y condiciones.</a>
+          <span data-notify="message">Agregue la muestra de sangre a trav&eacute;s del bot&oacute;n <b>Seleccionar archivo</b>, el resultado se procesará y almacenar&aacute; para futuras métricas y otros indicadores. Al procesar una imagen acepta los t&eacute;rminos y condiciones sobre el uso del sistema de detección. <br> <a href="/terms_and_conditions.html" target="_blank">Ver t&eacute;rminos y condiciones.</a>
           </span>
         </div>
         
@@ -41,10 +41,6 @@
               </div>
   
             </form>
-
-           
-
-            
            
           </div>
         </div>
@@ -64,7 +60,7 @@
               </div>
               <div class="col-md-6">
                 <div class="table-responsive">
-                  <table class="table tablesorter " id="tableResult">
+                  <table class="table tablesorter " id="tableResult" style="display: none;">
                     <thead class=" text-primary">
                       <tr>
                         <th colspan="2">
@@ -78,7 +74,7 @@
                           Gl&oacute;bulos detectados:
                         </td>
                         <td>
-                          154
+                          <div id="number_of_blobs"></div>
                         </td>
                       </tr>
                       <tr>
@@ -86,7 +82,7 @@
                           Tiempo de procesamiento:
                         </td>
                         <td>
-                          00:00:01
+                          <div id="time_process"></div>
                         </td>
                       </tr>
                       <tr>
@@ -94,7 +90,7 @@
                           C&oacute;digo de proceso:
                         </td>
                         <td>
-                          bc9pe2iqinz5qz3
+                          <div id="transaction_id"></div>
                         </td>
                       </tr>
                       <tr>
@@ -102,17 +98,19 @@
                           Calificar la precisi&oacute;n del resultado:
                         </td>
                         <td>
-                          <input type="range" name="">
+                          <input type="range"  id="user_range" name="">
                         </td>
                       </tr>
                       <tr>
                         <td colspan="2">
-                          <textarea rows="4" cols="80" class="form-control" placeholder="Ingrese alguna nota u observación sobre los resultados." value="Mike"></textarea>
+                          <textarea rows="4" id="user_note" cols="80" class="form-control" placeholder="Ingrese alguna nota u observación sobre los resultados." value="Mike"></textarea>
                         </td>
                       </tr>
                       <tr>
                         <td colspan="2" style="border-top: none;">
-                          <button class="btn btn-primary btn-block" >Guardar Resultados</button>
+                          <button class="btn btn-primary btn-block" id="processButton" onclick="saveProcess()">
+                            Guardar Resultados
+                          </button>
                         </td>
                       </tr>
                      
@@ -127,65 +125,86 @@
       <div class="col-md-12">
         <div class="card  card-plain">
           <div class="card-header">
-            <h4 class="card-title"> Table on Plain Background</h4>
-            <p class="category"> Here is a subtitle for this table</p>
+            <h4 class="card-title">Tabla de resultados hist&oacute;ricos</h4>
           </div>
           <div class="card-body">
             <div class="table-responsive">
-              <table class="table tablesorter " id="">
+              <table class="table tablesorter " id="tableProcess">
                 <thead class=" text-primary">
                   <tr>
                     <th>
-                      Name
+                      ID
+                    </th>
+                    <th>
+                      Nombre de transacci&oacute;n
+                    </th>
+                    <th>
+                      N&uacute;mero de gl&oacute;bulos
+                    </th>
+                    <th>
+                      Tiempo de procesamiento
+                    </th>
+                    <th>
+                      Calificaci&oacute;n del resultado
+                    </th>
+                    <th>
+                      Nota del usuario
+                    </th>
+                    <th>
+                      Ver imagen
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td>
-                      Dakota Rice
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>
-                      Dakota Rice
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>
-                      Dakota Rice
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>
-                      Dakota Rice
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>
-                      Dakota Rice
-                    </td>
-                  </tr>
+                 
                 </tbody>
               </table>
             </div>
           </div>
         </div>
       </div>
+
+      <div class="modal modal-search fade" id="processModal" tabindex="-1" role="dialog" aria-labelledby="processModal"
+      aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <input type="text" class="form-control" id="inlineFormInputGroup" placeholder="Imagen procesada">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <i class="tim-icons icon-simple-remove"></i>
+                    </button>
+                </div>
+                <div class="modal-body" id="processModalContent">
+                  
+                </div>
+            </div>
+        </div>
+      </div>
     </div>
   </div>
 
   <script>
+    var fields = {
+      'number_of_blobs': 0,
+      'time_process': 0,
+      'transaction_id': 0,
+      'user_range': 0,
+      'user_note': '',
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
-        const formulario = document.querySelector('form');
+        const formInput = document.querySelector('form');
+        const tableDisplay = document.getElementById('tableResult');
         const cardHeaderProcess = document.getElementById('cardHeaderProcess');
         const cardResultProcess = document.getElementById('cardResultProcess');
-        
 
-        formulario.addEventListener('submit', function (e) {
+        formInput.addEventListener('submit', function (e) {
+          let elementHTML = document.getElementById('processButton');
+          elementHTML.disabled = false;
+
             e.preventDefault();
 
-            const formData = new FormData(formulario);
+            const formData = new FormData(formInput);
 
             fetch("{{ url_for('authentication_blueprint.procesar_imagen') }}", {
                 method: 'POST',
@@ -197,8 +216,18 @@
                 cardResultProcess.innerHTML = `<p>Error: ${data.error}</p>`;
               } 
               else {
+                //Desplegamos la tabla
+                tableDisplay.style.display = '';
+
                 cardHeaderProcess.innerHTML = "";
                 //cardHeaderProcess.innerHTML = `<h4 class="card-title">Número de glóbulos detectados: ${data.num_blobs}</h4> <p class="category">El resultado se almacenará para futuras métricas</p>`
+                let keys = Object.keys(data.content_data)
+
+                keys.forEach(k => {
+                  elementHTML = document.getElementById(k)
+                  elementHTML.innerHTML = data.content_data[k]
+                  fields[k] = data.content_data[k]
+                })
 
                 cardResultProcess.innerHTML = `<img src="data:image/png;base64,${data.image_base64}" style="width=100%;" alt="resultado">`;
               }
@@ -230,6 +259,87 @@
       dropContainer.classList.remove("drag-active")
       fileInput.files = e.dataTransfer.files
     })
+
+    function saveProcess(){
+      let element = document.getElementById('user_range')
+      fields.user_range = element.value
+      element = document.getElementById('user_note')
+      fields.user_note = element.value
+      
+      fetch("{{ url_for('authentication_blueprint.api_save_process') }}", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(fields)
+      })
+      .then(response => response.json())  // Si esperas una respuesta JSON del servidor
+      .then(data => {
+        element = document.getElementById('processButton');
+        element.disabled = true;
+        demo.showNotification('top', 'center', 'Se guardó el resultado de la detección de glóbulos correctamente.')
+        getHistoric()
+      })
+      .catch(error => {
+        console.error('Error:', error);
+      });
+      
+    }
+
+    function getHistoric(){
+      fetch("{{ url_for('authentication_blueprint.get_historic') }}", {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+      })
+      .then(response => response.json())  // Si esperas una respuesta JSON del servidor
+      .then(data => {
+        let table = document.getElementById("tableProcess");
+        let rows = table.rows;
+        for (let i = rows.length - 1; i > 0; i--) {
+          table.deleteRow(i);
+        }
+
+        data.images.forEach(el => {
+          table = document.getElementById("tableProcess").getElementsByTagName('tbody')[0];
+          let fila = table.insertRow();
+          let celda1 = fila.insertCell(0);
+          let celda2 = fila.insertCell(1);
+          let celda3 = fila.insertCell(2);
+          let celda4 = fila.insertCell(3);
+          let celda5 = fila.insertCell(4);
+          let celda6 = fila.insertCell(5);
+          let celda7 = fila.insertCell(6);
+
+          //Insertar contenido
+          celda1.innerHTML = (el.id + 1000);
+          celda2.innerHTML = el.transaction_id;
+          celda3.innerHTML = el.number_of_blobs;
+          celda4.innerHTML = el.time_process;
+          celda5.innerHTML = el.user_range + '%';
+          celda6.innerHTML = el.user_note;
+          celda7.innerHTML = `<button class="btn btn-link" onclick="displayImageProcess('${el.transaction_id}')"" id="search-button" data-toggle="modal"
+                                    data-target="#processModal"><i class="tim-icons icon-image-02"></i>
+                                <span class="d-lg-none d-md-block">Search</span>
+                            </button>`;
+
+
+        });
+        //console.error(data.images.length);
+      })
+      .catch(error => {
+        //console.error('Error:', error);
+      });
+      
+    }
+
+    function displayImageProcess(id){
+      const processModalContent = document.getElementById('processModalContent');
+      processModalContent.innerHTML = `<div class="centered-div"><img src="/static/assets/process_image/${id}.jpg" class="modal-image" alt="resultado"></div>`;
+    }
+
+    getHistoric()
 
   </script>
 
